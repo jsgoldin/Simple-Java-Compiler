@@ -1,0 +1,26 @@
+21100
+81100
+21100
+81101
+91000
+94001
+72100
+73101
+10010
+33002
+51120
+63340
+30001
+10020
+81102
+20100
+00000
+8
+8
+
+The program (before the 00000) reads in two 
+numbers and multiplies them, using repeated
+addtion.  Also play with memory a little,
+just to test it out.
+
+

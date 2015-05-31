@@ -1,0 +1,1029 @@
+options {
+  IGNORE_CASE=false;
+}
+
+PARSER_BEGIN(simplejava)
+
+public class simplejava {
+
+}
+
+PARSER_END(simplejava)
+
+TOKEN_MGR_DECLS : 
+{
+    public static int numOfComment = 0;
+}
+
+SKIP:
+{
+         <"//"(~["\n"])*"\n">       
+|        <"/*"> {numOfComment=1;}: INSIDE_COMMENT
+}
+
+<INSIDE_COMMENT>
+SKIP:
+{
+        <"/*"> {numOfComment++;}
+}
+
+<INSIDE_COMMENT>
+SKIP:
+{
+        <"*/"> {numOfComment--; if (numOfComment==0) SwitchTo(DEFAULT);}
+|       <~[]>
+}
+
+SKIP:
+{
+        <" ">
+|       <"\t">
+|       <"\n">
+}
+
+TOKEN : 
+{
+	<FOR: "for">
+|	<IF: "if">
+|	<WHILE: "while">
+|	<DO: "do">
+|	<ELSE: "else">
+|	<CLASS: "class">
+|   <TRUE: "true">
+|   <FALSE: "false">
+|   <RETURN: "return">
+|   <NEW: "new">
+|   <PLUS: "+">
+|   <MINUS: "-">
+|   <MULTIPLY: "*">
+|   <DIVIDE: "/">
+|   <EQUAL: "==">
+|   <GREATERTHAN: ">">
+|   <NOT: "!"> 
+|   <LEFTBRACE: "{">
+|   <LEFTBRACKET: "[">
+|   <RIGHTBRACKET: "]">
+|   <DOT: ".">
+|   <COMMA: ",">
+|   <GREATEROREQUAL: ">=">
+|   <SEMICOLON: ";">
+|   <AND: "&&">
+|   <RIGHTBRACE: "}">
+|   <LEFTPARAN: "(">
+|   <RIGHTPARAN: ")">
+|   <NOTEQUAL: "!=">
+|   <LESSOREQUAL: "<=">
+|   <LESSTHAN: "<">
+|   <GETS: "=">
+|   <OR: "||">
+|   <SINGLEQUOTE: "\'">
+|   <DOUBLEQUOTE: "\"">
+|   <INTEGER_LITERAL: (["0"-"9"])+>
+|   <IDENTIFIER: (["a"-"z","A"-"Z","_"])+(["a"-"z","A"-"Z","_","0"-"9"])*>
+}
+
+ASTProgram program(): 
+{
+    ASTProgram aP = new ASTProgram(null, null, 0);
+    ASTFunctionDefinitions functionDefs = new ASTFunctionDefinitions();
+    ASTClasses classes = new ASTClasses();
+} 
+{ 
+    classes = classDefs() functionDefs = funcDecs() <EOF> 
+    { 
+      /* The program was parsed */        
+      aP.setclasses(classes);
+      aP.setfunctiondefinitions(functionDefs);
+      return aP;
+    }
+}
+
+// this should return ASTClasses
+ASTClasses classDefs(): 
+{
+    ASTClasses classes = new ASTClasses();
+    ASTClass astClass;
+}
+{
+    (
+        astClass = classDef() 
+        {
+            classes.addElement(astClass);
+        }
+    )*
+    {
+        return classes;
+    }
+}
+
+ASTFunctionDefinitions funcDecs(): 
+{
+    ASTFunctionDefinitions functionDefs = new ASTFunctionDefinitions();
+    ASTFunctionDefinition functionDef; 
+}
+{
+    (
+        functionDef = funcDec() 
+        {
+            /* A function was parsed */
+            functionDefs.addElement(functionDef);
+        } 
+    )*
+    {
+        /* All Functions have been parsed */
+        return functionDefs;
+    }
+}
+
+ASTClass classDef(): 
+{
+    ASTClass astClass;
+    ASTInstanceVariableDefs variableDefs = new ASTInstanceVariableDefs();
+    ASTInstanceVariableDef variableDef; 
+    Token name;
+} 
+{
+    "class" name = <IDENTIFIER> <LEFTBRACE> 
+    (
+        variableDef = classVariableDef() 
+        { 
+            variableDefs.addElement(variableDef); 
+        }
+    )* 
+    <RIGHTBRACE> 
+    {
+        astClass = new ASTClass(name.toString(), variableDefs, name.beginLine);
+        return astClass;
+    }    
+}
+
+
+ASTFunctionDefinition funcDec(): 
+{ 
+    Token type, name;
+    ASTFormals formals; 
+    ASTStatement statement;
+    ASTStatements statements = new ASTStatements();
+} 
+{ 
+    type = <IDENTIFIER> name = <IDENTIFIER> formals = formalParamList() 
+    (
+        <SEMICOLON>
+        {   /* Function Prototype STATUS: DONE */
+            return new ASTPrototype(type.toString(),  name.toString(), formals, type.beginLine);
+        }
+        | 
+        <LEFTBRACE> 
+        (
+            statement = statement()
+            {
+                statements.addElement(statement);
+            }
+        )* 
+        <RIGHTBRACE> 
+        {   
+            /* Function Definition STATUS: NOTDONE */
+            return new ASTFunction(type.toString(),  name.toString(), formals, statements, type.beginLine);
+        }   
+    ) 
+}
+
+
+
+
+ASTFormals formalParamList(): {ASTFormals formals = new ASTFormals(); ASTFormal formal; Token type, name; int dimCount;} 
+{ 
+    <LEFTPARAN> (
+                    type = <IDENTIFIER> name = <IDENTIFIER> dimCount = arrayDimDec() 
+                    { formals.addElement(new ASTFormal(type.toString(), name.toString(), dimCount, type.beginLine));}
+                    (
+                        <COMMA> type = <IDENTIFIER> name = <IDENTIFIER> dimCount = arrayDimDec() 
+                        { formals.addElement(new ASTFormal(type.toString(), name.toString(), dimCount, type.beginLine));}
+                    )*
+                )? 
+    <RIGHTPARAN>
+    { return formals; } 
+}
+
+
+void informalParamList(): 
+{}
+{ 
+    <LEFTPARAN> 
+    ( 
+        expression() 
+        (
+            <COMMA> expression()
+        )* 
+    )? 
+    <RIGHTPARAN> 
+}
+
+
+int arrayDimDec(): { int dimCount = 0; }
+{
+    (<LEFTBRACKET> <RIGHTBRACKET> {dimCount++;} )* 
+    {return dimCount;}
+}
+
+
+
+ASTInstanceVariableDef classVariableDef(): 
+{
+    ASTInstanceVariableDef instanceVar;
+    Token type, name;
+    int arrayDim;
+}
+{
+    type = <IDENTIFIER> name = <IDENTIFIER> arrayDim = arrayDimDec() <SEMICOLON>
+    {
+        instanceVar = new ASTInstanceVariableDef(type.toString(), name.toString(), arrayDim, type.beginLine);
+        return instanceVar;
+    } 
+}
+
+ASTStatement statement(): 
+{
+    ASTStatement resultingStatement = null;
+    Token lineToken;
+    boolean flag = false;
+} 
+{ 
+    ( 
+        resultingStatement = blockStatement() 
+        | 
+        resultingStatement = ifStatement() 
+        | 
+        resultingStatement = whileStatement() 
+        | 
+        resultingStatement = forStatement() 
+        | 
+        resultingStatement = doWhileStatement() 
+        | 
+        ( 
+            (
+                (
+                    resultingStatement = identifierPrefix()
+                    | 
+                    resultingStatement = returnStatement()
+                )
+                {
+                    flag = true;
+                } 
+            )?
+ 
+            lineToken = <SEMICOLON>
+            {
+                if(flag == false) {
+                    resultingStatement = new ASTEmptyStatement(lineToken.beginLine);
+                }
+            }
+             
+        ) 
+    )
+    
+    {
+        return resultingStatement;
+    } 
+}
+
+
+/* Parses the what I'm calling the "property accessors" 
+ * These are either an array bracket indexer or a class dot operator.
+ * These can follow a base variable.           
+ */
+ASTVariable propertyAccessors(ASTVariable base):
+{
+    ASTExpression indexExp;
+    Token member;
+    ASTVariable returnVar = null;
+}
+{
+    (
+        (   
+            indexExp = arrayDimWithExpression() // array bracket indexer
+            {
+                /* parsed an array variable */
+                ASTArrayVariable childArrayVar = new ASTArrayVariable(base, indexExp, base.line());            
+            }
+            (
+                returnVar = propertyAccessors(childArrayVar)        
+            )?
+            {
+                if(returnVar == null) {
+                    return childArrayVar;        
+                } else {
+                    return returnVar; 
+                }    
+            }
+        )    
+        |
+        (
+            <DOT> member = <IDENTIFIER>
+            {
+                /* class dot operator */
+                ASTClassVariable childClassVar = new ASTClassVariable(base, member.toString(), member.beginLine);
+            }
+            (
+                returnVar = propertyAccessors(childClassVar)        
+            )?
+            {
+                if(returnVar == null) {
+                    return childClassVar;        
+                } else {
+                    return returnVar; 
+                }       
+            }
+        )
+    )
+}
+
+
+ASTStatement identifierPrefix(): 
+{
+    Token type, name;
+    ASTExpression exp = null;
+    int arrayDecDim = 0;
+    ASTVariable baseVar;
+    ASTAssignmentStatement assignmentStatement;
+    ASTFunctionCallStatement funcCallStatement;
+} 
+{ 
+    type = <IDENTIFIER> // all statements of this kind start with an identifier.  
+    {
+        // initialize baseVar for propertAccessor recursion
+        baseVar = new ASTBaseVariable(type.toString(), type.beginLine);
+    }  
+        
+    (
+        (
+            
+            /* Parses 0 or more property accessors 
+             *
+             * For example the pattern between the arrows:
+             * id<[exp][exp].id[exp]>                  
+             */
+             
+             (baseVar = propertyAccessors(baseVar))?            
+            (  
+                ( 
+                    <GETS> 
+                    ( 
+                        exp = expression() 
+                    )
+                    {
+                        /* An assignment statement was parsed */
+                        return new ASTAssignmentStatement(baseVar,exp,type.beginLine);
+                    } 
+                )    
+                |  
+                assignmentStatement = incrementShortSuffix(baseVar)
+                {
+                    /* A short hand increment suffix was parsed */
+                    return assignmentStatement;
+                }  
+            )  
+        ) 
+        | 
+        name = <IDENTIFIER> arrayDecDim = arrayDimDec() (<GETS> exp = expression())?
+        {
+            /* Variable declaration statement */            
+            ASTVariableDefStatement varDefStatement;
+
+            if(exp == null) {
+                varDefStatement = new ASTVariableDefStatement(type.toString(), name.toString(), arrayDecDim, type.beginLine);
+            } else {
+                varDefStatement = new ASTVariableDefStatement(type.toString(), name.toString(), arrayDecDim, exp, type.beginLine);
+            }
+
+            return varDefStatement;
+                
+        }
+        |
+        (
+            /* Parsing a function call */          
+            <LEFTPARAN>
+            {
+                funcCallStatement = new ASTFunctionCallStatement(type.toString(), type.beginLine);
+            } 
+            ( 
+                exp = expression()
+                {
+                    funcCallStatement.addElement(exp);
+                } 
+                (
+                    <COMMA> exp = expression()
+                    {
+                        funcCallStatement.addElement(exp);
+                    }
+                )* 
+            )? 
+            <RIGHTPARAN> 
+            {
+                return funcCallStatement;
+            }
+        )
+    )
+    {
+        return null;
+    } 
+}
+
+
+ASTAssignmentStatement incrementShortSuffix(ASTVariable base):
+{
+    ASTAssignmentStatement assignmentStatement;
+    ASTIntegerLiteral one;
+    ASTExpression left;
+    ASTExpression right;
+    Token lineStart;
+} 
+{
+    (
+        lineStart = <PLUS> <PLUS>
+        {
+            one = new ASTIntegerLiteral(1, lineStart.beginLine);
+            left = new ASTVariableExpression(base, base.line());
+            right = new ASTOperatorExpression(left, one, ASTOperatorExpression.PLUS, lineStart.beginLine);
+            assignmentStatement = new ASTAssignmentStatement(base, right, lineStart.beginLine);
+            return assignmentStatement;
+        } 
+        |
+        lineStart = <MINUS> <MINUS>
+        {
+            one = new ASTIntegerLiteral(1, lineStart.beginLine);
+            left = new ASTVariableExpression(base, base.line());
+            right = new ASTOperatorExpression(left, one, ASTOperatorExpression.MINUS, lineStart.beginLine);
+            assignmentStatement = new ASTAssignmentStatement(base, right, lineStart.beginLine);
+            return assignmentStatement;
+        }
+    ) 
+}
+
+
+ASTStatement blockStatement():
+{
+    ASTStatements statements = new ASTStatements();
+    ASTStatement statement = null;
+}
+{
+    <LEFTBRACE> 
+    (
+       statement = statement()
+        {
+            statements.addElement(statement);
+        }
+    )* 
+    <RIGHTBRACE>
+    {
+        return statements;
+    }
+}
+
+
+
+ASTExpression arrayDimWithExpression(): 
+{
+    ASTExpression elem = null;    // the expression inside of the brackets
+} 
+{
+    <LEFTBRACKET> 
+    (
+        elem = expression()
+    )?
+    <RIGHTBRACKET>
+    {      
+        // what should the expression index be if the brackets are empty?
+        // is that even possible syntacticly?
+        return elem;
+    } 
+}
+
+
+// XXX: Dangling else warning!
+ASTIfStatement ifStatement(): 
+{
+    ASTExpression test;
+    ASTStatement thenstatement = null, elsestatement = null;
+    Token ifToken;
+} 
+{ 
+    ifToken = <IF> <LEFTPARAN> test = expression() <RIGHTPARAN> thenstatement = statement() 
+    (
+        <ELSE> elsestatement = statement()
+    )? 
+    
+    {
+        return new ASTIfStatement(test, thenstatement, elsestatement, ifToken.beginLine);
+    }
+    
+}
+
+ASTStatement whileStatement(): 
+{
+    ASTExpression test;
+    ASTStatement body;
+    Token tokenLine;
+} 
+{ 
+    tokenLine = <WHILE> <LEFTPARAN> test = expression() <RIGHTPARAN> body = statement() 
+    {
+        return new ASTWhileStatement(test, body, tokenLine.beginLine);
+    }
+}
+
+ASTStatement forStatement(): 
+{
+    ASTStatement initialize = null;
+    ASTExpression test = null;
+    ASTStatement increment = null;
+    ASTStatement body = null;
+    Token lineToken;
+} 
+{ 
+    lineToken = <FOR> <LEFTPARAN> 
+    (
+        initialize = identifierPrefix()
+    )? 
+    <SEMICOLON> test = expression() <SEMICOLON> 
+    (
+        increment = identifierPrefix()
+    )?
+    <RIGHTPARAN> body = statement() 
+    {
+        return new ASTForStatement(initialize, test, increment, body, lineToken.beginLine);
+    }
+}
+
+ASTDoWhileStatement doWhileStatement(): 
+{
+    ASTExpression test = null; 
+    ASTStatement body = null;
+    Token tokenLine;
+} 
+{ 
+    tokenLine = <DO> body = statement() <WHILE> <LEFTPARAN> test = expression() <RIGHTPARAN> 
+    {
+        return new ASTDoWhileStatement(test, body, tokenLine.beginLine);
+    }
+} 
+
+ASTReturnStatement returnStatement(): 
+{
+    ASTExpression exp = null;
+    Token lineToken = null;
+} 
+{ 
+    lineToken = <RETURN> 
+    (
+        exp = expression()
+    )?
+    {
+        return new ASTReturnStatement(exp, lineToken.beginLine);
+    }
+}
+
+
+
+ASTExpression expression(): 
+{
+    Token type;
+    ASTExpression resultingExpression;
+    int arrayDimCount = 0;
+}
+{ 
+    (
+        (
+            /* New expression, can either be a new array, or instatiating a class 
+             * If it is a new array it must be followed by dimensions specifiers.
+             * If it is a new class then it must be followed by an informal
+             * parameter list.
+             */       
+            <NEW> type = <IDENTIFIER> 
+            (
+                
+                resultingExpression = arrayDimWithExpression() 
+                {
+                    arrayDimCount++;
+                }
+                (
+                    // XXX: Hacky way I think to pass new array test,
+                    // only the expression in the first array is used in the creation
+                    // of the ASTNewArrayExpression object...
+                    // but then again it seems to match the tests so far!
+                    arrayDimWithExpression() 
+                    {
+                        arrayDimCount++;
+                    }
+                )*
+
+
+
+                {
+                    /* Allocating an array */
+                    return new ASTNewArrayExpression(type.toString(), resultingExpression, arrayDimCount, type.beginLine);
+                }
+                |
+                informalParamList()
+                {
+                    /* Instantiating class */
+                     return new ASTNewClassExpression(type.toString(), type.beginLine);
+                }
+            )
+        )
+        |
+        /* The expression did not start with the new statement. 
+         * The possible parse paths are contained in expNoNew().        
+         */ 
+        resultingExpression = expNoNew() 
+        {
+            return resultingExpression;
+        }
+    )
+}
+
+/* All expresions that do not start with the <NEW> */
+ASTExpression expNoNew():
+{
+    ASTExpression resultingExpression = null;
+} 
+{       
+    (
+        // resultingExpression = expNoNewParans()
+        // |  
+        // resultingExpression = expNoNewNoParans()
+        resultingExpression = expressionTopTopCHILL() 
+    )
+    {
+        return resultingExpression;
+    } 
+}
+
+
+
+
+ASTExpression expNoNewParans(): 
+{
+
+} 
+{ 
+    <LEFTPARAN> expressionVarOrConstant() 
+    (
+        expressionOperator() expNoNew()
+    )?
+    <RIGHTPARAN>
+    (
+        // to hand case like this: (x + 1) + 2
+        expressionOperator() expNoNew()
+    )? 
+    {
+        return null;
+    }
+}
+
+
+ASTExpression expressionTopTopCHILL(): 
+{
+    ASTExpression left = null;
+    ASTExpression right = null;
+
+    Token operatorToken = null;
+}
+{
+    left = expressionTopCHILL() // returns the series of recursive terms in left
+    (
+        (
+            operatorToken = <OR>
+            |
+            operatorToken = <AND>
+        )                             
+        right = expressionTopCHILL() // returns the recursive series of operators
+        {            
+            // create operation expression from left and right
+            ASTOperatorExpression newOpExp = new ASTOperatorExpression(left, right, operatorToken.toString(), operatorToken.beginLine);
+            // set left to be the new operation expression          
+            left = newOpExp;
+        }        
+    )*
+    {
+        return left;    
+    }    
+}
+
+
+ASTExpression expressionTopCHILL(): 
+{
+    ASTExpression left = null;
+    ASTExpression right = null;
+
+    Token operatorToken = null;
+}
+{
+    left = expressionCHILL() // returns the series of recursive terms in left
+    (
+        (
+            operatorToken = <LESSTHAN>
+            |
+            operatorToken = <GREATERTHAN>   
+            |
+            operatorToken = <GREATEROREQUAL>   
+            |
+            operatorToken = <LESSOREQUAL>   
+            |
+            operatorToken = <EQUAL>   
+            |
+            operatorToken = <NOTEQUAL>   
+        )                             
+        right = expressionCHILL() // returns the recursive series of operators
+        {            
+            // create operation expression from left and right
+            ASTOperatorExpression newOpExp = new ASTOperatorExpression(left, right, operatorToken.toString(), operatorToken.beginLine);
+            // set left to be the new operation expression          
+            left = newOpExp;
+        }        
+    )*
+    {
+        return left;    
+    }    
+}
+
+ASTExpression expressionCHILL(): 
+{
+    ASTExpression left = null;
+    ASTExpression right = null;
+
+    Token operatorToken = null;
+}
+{
+    left = termCHILL() // returns the series of recursive terms in left
+    (
+        (
+            operatorToken = <MINUS>
+            |
+            operatorToken = <PLUS>
+        )                              
+        right = termCHILL() // returns the recursive series of operators
+        {            
+            // create operation expression from left and right
+            ASTOperatorExpression newOpExp = new ASTOperatorExpression(left, right, operatorToken.toString(), operatorToken.beginLine);
+            // set left to be the new operation expression          
+            left = newOpExp;
+        }        
+    )*
+    {
+        return left;    
+    }
+}
+
+ASTExpression termCHILL():
+{
+    ASTExpression left = null;
+    ASTExpression right = null;
+    Token operatorToken = null;
+    Token notToken = null;
+    Token notToken2 = null;
+}
+{
+    // can be preceeded by not
+    (
+        notToken = <NOT>
+    )?
+
+    left = factor()
+    {
+        if(notToken != null) {
+            left = new ASTUnaryOperatorExpression(left, notToken.toString(), notToken.beginLine);
+        }
+    } 
+    (
+        (
+            operatorToken = <MULTIPLY>
+            |
+            operatorToken = <DIVIDE>
+        ) 
+        
+        // can be preceeded by not
+        (
+            notToken2 = <NOT>
+        )?
+        
+        right = factor()
+        {
+            if(notToken2 != null) {
+            System.out.println("B:" + notToken2.beginLine);
+                right = new ASTUnaryOperatorExpression(right, notToken2.toString(), notToken2.beginLine);
+            }
+                
+            // create operation expression from left and right
+            ASTOperatorExpression newOpExp = new ASTOperatorExpression(left, right, operatorToken.toString(), operatorToken.beginLine);
+            // set left to be the new operation expression          
+            left = newOpExp;
+        }                
+    )*
+    {
+        return left;
+    }
+}
+
+
+
+ASTExpression factor():
+{
+    ASTExpression exp;
+}
+{
+    (
+        <LEFTPARAN>  exp = expressionTopTopCHILL() <RIGHTPARAN>
+        |
+        exp = expressionVarOrConstant()
+    )
+    {
+        return exp;
+    }
+}
+
+
+
+ASTExpression expNoNewNoParans(): 
+{
+    ASTExpression left;
+    ASTExpression right = null;
+    Token operator = null;
+} 
+{
+    left = expressionVarOrConstant()
+    (
+        operator = expressionOperator() right = expNoNew()
+    )?
+    {
+        if(right==null) {
+            return left;
+        } else {
+            return new ASTOperatorExpression(left, right, operator.toString(), operator.beginLine);  
+        }
+    } 
+}
+
+ASTExpression expressionVarOrConstant(): 
+{
+    ASTExpression resultingExpression;
+} 
+{ 
+    (
+        resultingExpression = expressionVar() 
+        |
+        resultingExpression = expressionConstant()
+    )
+    {
+        return resultingExpression;
+    } 
+}
+
+
+ASTExpression expressionVar(): 
+{
+    Token base;
+    ASTVariable baseVar;
+    ASTFunctionCallExpression functionCall = null;
+
+} 
+{ 
+    base = <IDENTIFIER>
+    {
+        // initialize baseVar for propertAccessor recursion
+        baseVar = new ASTBaseVariable(base.toString(), base.beginLine);
+    }  
+        
+    (baseVar = propertyAccessors(baseVar))?   
+
+   // can be follwed by a function call
+    (
+        functionCall = expInformalParamList(base)
+    )?
+
+
+    {
+        if(functionCall != null) {
+            return functionCall;
+        } else {
+            return new ASTVariableExpression(baseVar, base.beginLine);
+        }        
+    }
+}
+
+
+void classExpVar():
+{
+    Token classVar;
+}
+{
+    <DOT> classVar = <IDENTIFIER>    
+}
+
+
+
+/* Parses primitives */
+ASTExpression expressionConstant(): 
+{
+    Token boolVal;
+    boolean isNegative = false;
+    Token intLiteral;
+    Token charVal;
+} 
+{ 
+    (<SINGLEQUOTE> charVal = <IDENTIFIER> <SINGLEQUOTE>)
+    {
+        
+        if (charVal.toString().length() > 0) {
+            return new ASTCharLiteral(charVal.toString().charAt(0), charVal.beginLine);
+        } else {
+            return new ASTCharLiteral('\0', charVal.beginLine);
+        }    
+    }
+    |
+    (boolVal = <TRUE> | boolVal = <FALSE>)
+    {
+        /* Boolean Literal was parsed. */
+        
+        // convert String value of token to boolean
+        boolean actualValue;
+        if(boolVal.toString().compareTo("true") == 0) {
+            actualValue = true;
+        } else {
+            actualValue = false;
+        }        
+        
+        return new ASTBooleanLiteral(actualValue, boolVal.beginLine);
+    } 
+    | 
+    ("-" {isNegative = true;})? intLiteral = <INTEGER_LITERAL>
+    {
+        int actualIntValue = Integer.parseInt(intLiteral.toString());  
+        if(isNegative) {
+            return new ASTOperatorExpression( new ASTIntegerLiteral(0, intLiteral.beginLine), new ASTIntegerLiteral(actualIntValue, intLiteral.beginLine), "-", intLiteral.beginLine);
+        }
+        return new ASTIntegerLiteral(actualIntValue, intLiteral.beginLine);
+    }
+}
+
+ASTFunctionCallExpression expInformalParamList(Token base): 
+{
+    ASTExpression formal = null;
+    ASTFunctionCallExpression functionCall = new ASTFunctionCallExpression(base.toString(), base.beginLine);
+} 
+{ 
+    <LEFTPARAN> 
+    ( 
+        formal = expression()
+        {
+            functionCall.addElement(formal);
+        } 
+        (
+            <COMMA> formal = expression()
+            {
+                functionCall.addElement(formal);
+            }
+        )* 
+    )? 
+    <RIGHTPARAN>
+    {
+        return functionCall;
+    } 
+}
+
+Token expressionOperator(): 
+{
+    Token t;
+} 
+{ 
+    (
+        t = <PLUS>
+        |
+        t = <MINUS>
+        |
+        t = <MULTIPLY>
+        |
+        t = <DIVIDE>
+        |
+        t = <GREATERTHAN>
+        |
+        t = <LESSTHAN>
+        |
+        t = <LESSOREQUAL>
+        |
+        t = <GREATEROREQUAL>
+        |
+        t = <EQUAL>
+        |
+        t = <NOTEQUAL>
+        |
+        t = <AND>
+        |
+        t = <OR>
+        |
+        t = <NOT>
+    )
+    {
+        return t;
+    }
+}

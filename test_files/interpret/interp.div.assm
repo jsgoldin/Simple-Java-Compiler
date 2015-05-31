@@ -1,0 +1,22 @@
+21200
+21300
+91000
+94001
+10010
+45230
+65450
+35002
+51140
+62230
+30001
+10020
+20100
+20200
+00000
+2431
+49
+
+The program (before the 00000) reads in two 
+numbers x and y, and prints out x/y and x%y.
+
+

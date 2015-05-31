@@ -1,0 +1,22 @@
+This subdirectory contains sample simpleJava programs which can
+be used to test the simpleJava compiler:
+
+GCD.sjava             Computes the greatest common divisor of 2 numbers
+connect4-1p.sjava     Play connect 4 against the computer
+connect4-2p.sjava     Play connect 4 against another human opponent
+fact.sjava            Computes n!
+fib.sjava             Computes nth Fibonacci number (good stress test)
+interpret             <directory>
+  interpreter.sjava    Interpreter for a simple machine language
+  interp.div.assm      Test file for interpreter.sjava
+  interp.mult.assm     Test file for interpreter.sjava   
+  interp.power.assm    Test file for interpreter.sjava   
+  interp.primes.assm   Test file for interpreter.sjava   
+primes.sjava          Computes all primes <= a limit
+queens.sjava          Solves n-queens problem
+simple                <directory>
+  booltest              Tests boolean & relational operators
+  heaptest1.sjava       Testing the heap
+  heaptest2.sjava       Testing the heap
+  heaptest3.sjava       Testing the heap
+

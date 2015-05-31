@@ -1,0 +1,28 @@
+21500
+21600
+94001
+97001
+10030
+36004
+52070
+53050
+66640
+91000
+10010
+33002
+51120
+63340
+30001
+10020
+57100
+30003
+10040
+20700
+00000
+2
+10
+
+The program (before the 00000) reads in two 
+numbers x and y, and computes x^y, using
+repeated multiplication (which is repeated
+addition).
