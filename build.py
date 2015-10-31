@@ -18,7 +18,9 @@ for f in javaCCFiles:
 
 
 
-os.system("javacc -OUTPUT_DIRECTORY=src src/*.jj")
+
+
+os.system(" java -cp ./tools/javacc.jar javacc -OUTPUT_DIRECTORY=src src/*.jj")
 
 if (os.path.isdir("build")):
     shutil.rmtree("build")

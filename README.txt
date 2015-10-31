@@ -1,10 +1,20 @@
 This is a compiler that translates Simple-Java programs into MIPS assembly.
+You must build the compiler by running buid.py!
 
 
-To build the simple java compiler run the script build.py
 
-To compile a sjava file into MIPS run sjavac.py with the sjava file as a parameter
+build.py - Builds the compiler.
 
-To test a sample program run test.py. You will need change the MARSPATH variable in the script so it specifies the correct path to the MARS jar file.
+demo.py - A script for easily compiling and running included example sjava programs.
+
+sjavac.py - A wrapper python script for calling the compiler.
+	Usage: ./sjavac.py <path to sjava file>
+
+
+
+This project uses 2 external jar files located in tools/
+	javacc.jar - for generating the parser
+	Mars_4_5.jar - for running MIPS assembly
+
 
 Don't have too much fun!
