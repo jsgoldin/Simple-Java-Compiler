@@ -1,5 +1,5 @@
 This is a compiler that translates Simple-Java programs into MIPS assembly.
-You must build the compiler by running buid.py!
+You must build the compiler by running build.py!
 
 
 
